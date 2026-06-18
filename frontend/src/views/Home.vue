@@ -139,10 +139,7 @@
               </div>
             </div>
 
-            <div class="op-label" v-if="currentWaypoint">
-              {{ currentWaypoint.label || ('#' + (stepIndex + 1)) }} ({{ stepIndex + 1 }}/{{ totalSteps }})
-              <span class="need-capture-badge" v-if="needsCapture" :title="t('tipNeedCapture')">📸 {{ t('needCaptureBadge') }}</span>
-            </div>
+            <div class="op-label" v-if="currentWaypoint">{{ currentWaypoint.label || ('#' + (stepIndex + 1)) }} ({{ stepIndex + 1 }}/{{ totalSteps }})</div>
 
           </div>
 
@@ -192,11 +189,9 @@
         <!-- CONTROL BUTTONS -->
         <div class="controls" v-if="!isViewer">
 
-          <button class="btn sample" @click="captureImage" :disabled="capturing || !isConnected" :title="t('tipCapture')">{{ t('captureBtn') }}</button>
-
           <button class="btn light" :class="{ on: lightOn }" @click="toggleLight" :disabled="togglingLight || !isConnected" :title="t('tipLight')">{{ lightOn ? t('lightOffBtn') : t('lightOnBtn') }}</button>
 
-          <button class="btn import" @click="importPointsFromRobot" :disabled="importingPoints || !isConnected" :title="t('tipImportPoints')">{{ t('importPointsBtn') }}</button>
+          <button class="btn import" @click="importPointsFromRobot" :disabled="importingPoints || !isConnected" :title="t('tipImportPoints')">{{ importingPoints ? t('scanningBtn') : t('importPointsBtn') }}</button>
 
           <button class="btn stop" @click="stopRun" :title="t('tipStop')">{{ t('stop') }}</button>
 
@@ -277,11 +272,6 @@ computed: {
   captureSlots() {
     if (this.capturePoints.length === 0) return [{ label: null, image: this.capturedImage }]
     return this.capturePoints.map(wp => ({ label: wp.label, image: this.capturedShots[wp.label] || null }))
-  },
-  // Đang đứng tại 1 waypoint được đánh dấu Capture Point nhưng chưa chụp ảnh cho điểm đó —
-  // cần nhắc operator bấm nút Capture Image.
-  needsCapture() {
-    return !!(this.currentWaypoint?.capturePoint && !this.capturedShots[this.currentWaypoint.label])
   },
 },
 
@@ -560,6 +550,9 @@ methods:{
       return
     }
     this.importingPoints = true
+    // Log ngay khi bắt đầu — quá trình quét mất vài trăm ms tới vài giây, nếu không có dòng
+    // này thì nút chỉ mờ đi 1 chút, dễ tưởng là không bấm được/không chạy gì.
+    this.logKey('logScanningPoints', [count], 'info')
     try {
       const res  = await fetch(`${this.apiBase}/api/robot/import-points`, {
         method: 'POST',
@@ -571,6 +564,7 @@ methods:{
         this.logKey('logImportFail', [data.error], 'error')
       } else if(data.points && data.points.length > 0){
         const names = data.points.map(p => p.name).join(', ')
+        this.logKey('logScanFound', [names], 'ok')
         if(confirm(this.t('confirmImportPoints')(names))){
           const r2 = await fetch(`${this.apiBase}/api/robot/pending-import/save`, { method: 'POST' })
           const d2 = await r2.json()
@@ -606,11 +600,9 @@ methods:{
 
     if (data.success) {
       this.stepIndex = targetIndex
-      // wp vừa move tới là Capture Point nhưng chưa có ảnh cho điểm này — nhắc operator
-      // bấm nút Capture Image (không tự động chụp, theo đúng yêu cầu ban đầu).
-      if (wp.capturePoint && !this.capturedShots[wp.label]) {
-        this.logKey('logNeedCapture', [label], 'warn')
-      }
+      // wp là Capture Point — tự chụp ảnh ngay khi vừa tới, không cần bấm nút (đã bỏ nút
+      // Capture Image thủ công, mọi Capture Point đều tự động chụp lúc tới điểm).
+      if (wp.capturePoint) await this.captureImage()
     } else {
       this.logKey('logGoToFail', [label, data.error || ''], 'error')
     }
@@ -1025,16 +1017,6 @@ button:disabled {
  color:#1e6bd6;
 }
 
-.need-capture-badge{
- margin-left:6px;
- padding:2px 8px;
- background:#d97706;
- color:#fff;
- border-radius:10px;
- font-size:11px;
- font-weight:700;
- white-space:nowrap;
-}
 
 .manual-hint{
  padding:12px 15px;
@@ -1148,10 +1130,6 @@ button:disabled {
  color:white;
  cursor:pointer;
  white-space:nowrap;
-}
-
-.sample{
- background:#4c74b9;
 }
 
 .light{
