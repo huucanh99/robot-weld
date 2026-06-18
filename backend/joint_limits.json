@@ -1,0 +1,12 @@
+{
+  "verified": false,
+  "warningMarginDeg": 10,
+  "limits": {
+    "j1": { "min": -180, "max": 180 },
+    "j2": { "min": -180, "max": 180 },
+    "j3": { "min": -180, "max": 180 },
+    "j4": { "min": -180, "max": 180 },
+    "j5": { "min": -180, "max": 180 },
+    "j6": { "min": -180, "max": 180 }
+  }
+}

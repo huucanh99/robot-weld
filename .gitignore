@@ -1,0 +1,12 @@
+node_modules
+dist
+dist-ssr
+*.local
+.DS_Store
+*.log
+*.db
+report
+new.html
+integration_design_proposal.html
+.env
+!.env.example
